@@ -4,6 +4,8 @@
 
 Monitor how AI safety arguments penetrate public discourse. Built as a demonstration for MIRI (Machine Intelligence Research Institute).
 
+**Purpose:** automate zeitgeist analysis and MIRI ideas penetration measurement en masse by using LLMs, RAG and semantic search. 
+
 ## Features
 
 - **Sentiment Analysis** - Categorizes posts into 6 sentiment types (Positive/Hype, Neutral, Concerned-Mundane, Concerned-X-Risk, Dismissive, Anti-AI)
