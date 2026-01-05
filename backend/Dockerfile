@@ -8,9 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
 COPY *.py ./
-COPY ../data /app/data
 
-# Create data directory if it doesn't exist
+# Data directory will be mounted as volume
 RUN mkdir -p /app/data
 
 EXPOSE 8000
