@@ -9,6 +9,7 @@ Monitor how AI safety arguments penetrate public discourse. Built as a demonstra
 - **Sentiment Analysis** - Categorizes posts into 6 sentiment types (Positive/Hype, Neutral, Concerned-Mundane, Concerned-X-Risk, Dismissive, Anti-AI)
 - **MIRI Thesis Tracking** - Tracks penetration of 10 core AI safety arguments (Orthogonality, Instrumental Convergence, Deceptive Alignment, etc.)
 - **Topic Clustering** - 536 raw topics normalized to 30 canonical categories
+- **Date Filtering** - Filter dashboard by specific date with post counts per day
 - **Interactive Charts** - Click any chart segment to open filtered posts in modal view
 - **Semantic Search** - Find posts by content across the dataset
 - **Expandable Posts** - Click to expand truncated post text

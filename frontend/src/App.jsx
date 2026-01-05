@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   AlertTriangle, TrendingUp, MessageSquare, Eye, Heart, Repeat2,
-  ExternalLink, Search, Info, X, ChevronDown, ChevronUp
+  ExternalLink, Search, Info, X, ChevronDown, ChevronUp, Calendar
 } from 'lucide-react';
 import './App.css';
 
@@ -180,14 +180,18 @@ function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Date selection state (null = all dates, or { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' })
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
+  const [availableDates, setAvailableDates] = useState([]);
+
   // Filter modal state
   const [filterModal, setFilterModal] = useState({ open: false, type: null, value: null, displayValue: null });
   const [filteredPosts, setFilteredPosts] = useState(null);
   const [filterLoading, setFilterLoading] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(selectedDateRange);
+  }, [selectedDateRange]);
 
   // Close modal on ESC key
   useEffect(() => {
@@ -211,6 +215,9 @@ function App() {
       if (filterModal.type === 'sentiment') params.set('sentiment', filterModal.value);
       if (filterModal.type === 'topic') params.set('topic', filterModal.value);
       if (filterModal.type === 'thesis') params.set('thesis', filterModal.value);
+      // Include date range in filtered posts
+      if (selectedDateRange?.start) params.set('start_date', selectedDateRange.start);
+      if (selectedDateRange?.end) params.set('end_date', selectedDateRange.end);
       params.set('limit', '100');
 
       try {
@@ -228,7 +235,7 @@ function App() {
     };
 
     fetchFilteredPosts();
-  }, [filterModal.open, filterModal.type, filterModal.value]);
+  }, [filterModal.open, filterModal.type, filterModal.value, selectedDateRange]);
 
   useEffect(() => {
     if (selectedThesis) {
@@ -236,20 +243,36 @@ function App() {
     }
   }, [selectedThesis]);
 
-  const fetchData = async () => {
+  const fetchData = async (dateRange = null) => {
     try {
       setLoading(true);
+
+      // Build dashboard URL with date params
+      let dashUrl = `${API_URL}/api/dashboard`;
+      if (dateRange) {
+        const params = new URLSearchParams();
+        if (dateRange.start) params.set('start_date', dateRange.start);
+        if (dateRange.end) params.set('end_date', dateRange.end);
+        dashUrl += `?${params}`;
+      }
+
       const [dashRes, configRes] = await Promise.all([
-        fetch(`${API_URL}/api/dashboard`),
+        fetch(dashUrl),
         fetch(`${API_URL}/api/config`)
       ]);
-      
+
       if (!dashRes.ok || !configRes.ok) {
         throw new Error('Failed to fetch data');
       }
-      
-      setDashboardData(await dashRes.json());
+
+      const dashData = await dashRes.json();
+      setDashboardData(dashData);
       setConfig(await configRes.json());
+
+      // Store available dates (only on first load or when dates change)
+      if (dashData.available_dates) {
+        setAvailableDates(dashData.available_dates);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -296,6 +319,30 @@ function App() {
   const clearSearch = () => {
     setSearchTerm('');
     setSearchResults(null);
+  };
+
+  // Date selection handler
+  const handleDateClick = (date) => {
+    if (selectedDateRange?.start === date && selectedDateRange?.end === date) {
+      // Clicking same date again clears selection (show all)
+      setSelectedDateRange(null);
+    } else {
+      // Select single date
+      setSelectedDateRange({ start: date, end: date });
+    }
+    // Clear search when changing dates
+    clearSearch();
+  };
+
+  const clearDateFilter = () => {
+    setSelectedDateRange(null);
+    clearSearch();
+  };
+
+  // Format date for display (Jan 5)
+  const formatDateShort = (dateStr) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   // Filter handlers - open modal with filter
@@ -450,15 +497,45 @@ function App() {
             </div>
             <div className="stat">
               <span className="stat-value">
-                {date_range.start ? new Date(date_range.start).toLocaleDateString() : 'N/A'}
+                {selectedDateRange
+                  ? formatDateShort(selectedDateRange.start)
+                  : availableDates.length > 0
+                    ? `${formatDateShort(availableDates[0].date)} - ${formatDateShort(availableDates[availableDates.length - 1].date)}`
+                    : 'N/A'}
               </span>
-              <span className="stat-label">Data Period</span>
+              <span className="stat-label">{selectedDateRange ? 'Selected Date' : 'Date Range'}</span>
             </div>
           </div>
         </div>
       </header>
 
       <main className="main-content">
+        {/* Date picker */}
+        <div className="date-picker">
+          <div className="date-picker-label">
+            <Calendar size={16} />
+            <span>Date:</span>
+          </div>
+          <div className="date-buttons">
+            <button
+              className={`date-btn ${!selectedDateRange ? 'active' : ''}`}
+              onClick={clearDateFilter}
+            >
+              All
+            </button>
+            {availableDates.map((d) => (
+              <button
+                key={d.date}
+                className={`date-btn ${selectedDateRange?.start === d.date ? 'active' : ''}`}
+                onClick={() => handleDateClick(d.date)}
+              >
+                <span className="date-label">{formatDateShort(d.date)}</span>
+                <span className="date-count">{d.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Instruction hint */}
         <div className="chart-hint">
           <MessageSquare size={16} />

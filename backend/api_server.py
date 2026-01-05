@@ -84,9 +84,15 @@ class PostSummary(BaseModel):
     summary: str
 
 
+class DateInfo(BaseModel):
+    date: str
+    count: int
+
+
 class DashboardData(BaseModel):
     total_posts: int
     date_range: dict
+    available_dates: list[DateInfo]  # Dates with data
     sentiment_distribution: list[SentimentSummary]
     thesis_tracking: list[ThesisSummary]
     topic_distribution: list[TopicSummary]
@@ -172,17 +178,44 @@ async def get_taxonomy():
 
 
 @app.get("/api/dashboard", response_model=DashboardData)
-async def get_dashboard():
-    """Get main dashboard data."""
+async def get_dashboard(
+    start_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)")
+):
+    """Get main dashboard data, optionally filtered by date range."""
     posts, analyses = load_data()
-    
+
     if not posts or not analyses:
         raise HTTPException(status_code=404, detail="No data available")
-    
+
     merged = merge_data(posts, analyses)
+
+    # Compute available dates from ALL data (before filtering)
+    all_dates = [p.get('created_at', '')[:10] for p in merged if p.get('created_at')]
+    date_counts = {}
+    for d in all_dates:
+        date_counts[d] = date_counts.get(d, 0) + 1
+    available_dates = [
+        DateInfo(date=d, count=c)
+        for d, c in sorted(date_counts.items())
+    ]
+
+    # Apply date filter if specified
+    if start_date or end_date:
+        def in_date_range(post):
+            created = post.get('created_at', '')[:10]
+            if not created:
+                return False
+            if start_date and created < start_date:
+                return False
+            if end_date and created > end_date:
+                return False
+            return True
+        merged = [p for p in merged if in_date_range(p)]
+
     total = len(merged)
-    
-    # Date range
+
+    # Date range (of filtered data)
     dates = [p.get('created_at', '') for p in merged if p.get('created_at')]
     date_range = {
         "start": min(dates) if dates else None,
@@ -295,6 +328,7 @@ async def get_dashboard():
     return DashboardData(
         total_posts=total,
         date_range=date_range,
+        available_dates=available_dates,
         sentiment_distribution=sentiment_distribution,
         thesis_tracking=thesis_tracking,
         topic_distribution=topic_distribution,
@@ -309,6 +343,8 @@ async def get_posts(
     thesis: Optional[str] = Query(None, description="Filter by thesis"),
     topic: Optional[str] = Query(None, description="Filter by topic (canonical ID or name)"),
     search: Optional[str] = Query(None, description="Search in text"),
+    start_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0)
 ):
@@ -323,6 +359,19 @@ async def get_posts(
 
     # Apply filters - start with only AI-relevant posts
     filtered = [p for p in merged if is_ai_relevant(p)]
+
+    # Date filter
+    if start_date or end_date:
+        def in_date_range(post):
+            created = post.get('created_at', '')[:10]
+            if not created:
+                return False
+            if start_date and created < start_date:
+                return False
+            if end_date and created > end_date:
+                return False
+            return True
+        filtered = [p for p in filtered if in_date_range(p)]
 
     if sentiment:
         filtered = [p for p in filtered if p.get('sentiment') == sentiment]
