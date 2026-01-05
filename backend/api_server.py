@@ -18,8 +18,11 @@ from miri_theses import MIRI_THESES, SENTIMENT_CATEGORIES
 from gemini_analyzer import GeminiAnalyzer, cosine_similarity
 
 
-# Data paths
-DATA_DIR = Path(__file__).parent.parent / "data"
+# Data paths - check Docker path first, then local dev path
+DOCKER_DATA_DIR = Path("/app/data")
+LOCAL_DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = DOCKER_DATA_DIR if DOCKER_DATA_DIR.exists() else LOCAL_DATA_DIR
+
 POSTS_FILE = DATA_DIR / "bluesky_posts.json"
 ANALYSIS_FILE = DATA_DIR / "analysis_results.json"
 NORMALIZED_FILE = DATA_DIR / "analysis_normalized.json"
